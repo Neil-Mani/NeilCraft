@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neil Craft</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+    <style>
+        *{
+            font-family: 'Roboto Mono', sans-serif;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+        .game-container {
+            background-color: white;
+            border-radius: 5px;
+            padding: 20px;
+            display: flex;
+            height: 80vh;
+        }
+        #elements-section {
+            width: 220px;
+            padding-right: 20px;
+            border-right: 2px solid #ccc;
+            display: flex;
+            flex-direction: column;
+        }
+        #search-box {
+            margin-bottom: 10px;
+            padding: 5px;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        #elements-container {
+            height: 300px;
+            overflow-y: auto;
+            border: 2px solid #ccc;
+            border-radius: 5px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        #elements-overflow {
+            overflow-y: auto;
+        }
+        .element {
+            display: inline-block;
+            padding: 10px 15px;
+            margin: 5px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: move;
+            user-select: none;
+        }
+        h2 {
+            margin-top: 0;
+        }
+        #workspace-container {
+            flex-grow: 1;
+            margin-left: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+        #workspace {
+            flex-grow: 1;
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            position: relative;
+            overflow: auto;
+        }
+        .workspace-element {
+            position: absolute;
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border-radius: 5px;
+            cursor: move;
+            user-select: none;
+        }
+        .context-menu {
+            display: none;
+            position: absolute;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            padding: 5px 0;
+            z-index: 1000;
+        }
+        .context-menu-item {
+            padding: 5px 20px;
+            cursor: pointer;
+        }
+        .context-menu-item:hover {
+            background-color: #f0f0f0;
+        }
+        .gamename{
+            margin-left: 800px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="gamename">Neil Craft</h1>
+    <div class="game-container">
+        <div id="elements-section">
+            <h2>Elements</h2>
+            <input type="text" id="search-box" placeholder="Search elements...">
+            <div id="elements-container">
+                <div id="elements">
+                    <div class="element" draggable="true">Fire</div>
+                    <div class="element" draggable="true">Water</div>
+                    <div class="element" draggable="true">Earth</div>
+                    <div class="element" draggable="true">Air</div>
+                </div>
+            </div>
+            <div id="elements-overflow"></div>
+        </div>
+        <div id="workspace-container">
+            <h3>Drag elements here to combine</h3>
+            <div id="workspace"></div>
+        </div>
+    </div>
+    <div id="contextMenu" class="context-menu">
+        <div class="context-menu-item" id="removeElement">Remove Element</div>
+    </div>
+
+    <script>
+        const elementsContainer = document.getElementById('elements-container');
+        const elements = document.getElementById('elements');
+        const elementsOverflow = document.getElementById('elements-overflow');
+        const workspace = document.getElementById('workspace');
+        const contextMenu = document.getElementById('contextMenu');
+        const removeElementOption = document.getElementById('removeElement');
+        const searchBox = document.getElementById('search-box');
+        let draggedElement = null;
+        let contextMenuTarget = null;
+        let isDraggingWorkspaceElement = false;
+
+        const recipes = {
+        'Fire,Water': 'Steam',
+        'Water,Fire' : 'Steam',
+        'Fire,Earth' : 'Lava',
+        'Earth,Fire' : 'Lava',
+        'Fire,Air' : 'Smoke',
+        'Air,Fire' : 'Smoke',
+        'Water,Earth' : 'Plant',
+        'Earth,Water' : 'Plant',
+        'Water,Air' : 'Wave',
+        'Air,Water' : 'Wave',
+        'Earth,Air' : 'Dust',
+        'Air,Earth' : 'Dust',
+        'Steam,Steam': 'Cloud',
+        'Water,Plant' : 'Swamp',
+        'Plant,Water' : 'Swamp',
+        'Fire,Plant' : 'Ash',
+        'Plant,Fire' : 'Ash',
+        'Water,Cloud' : 'Rain',
+        'Cloud,Water' : 'Rain',
+        'Air,Cloud' : 'Sky',
+        'Cloud,Air' : 'Sky',
+        'Earth,Plant' : 'Tree',
+        'Plant,Earth' : 'Tree',
+        'Lava,Water' : 'Stone',
+        'Water,Lava' : 'Stone',
+        'Lava,Air' : 'Obsidian',
+        'Air,Lava' : 'Obsidian',
+        'Lava,Plant' : 'Ash',
+        'Plant,Lava' : 'Ash',
+        'Fire,Stone' : 'Metal',
+        'Stone,Fire' : 'Metal',
+        'Fire,Metal' : 'Sword',
+        'Metal,Fire' : 'Sword',
+        'Earth,Metal' : 'Armor',
+        'Metal,Earth' : 'Armor',
+        'Water,Stone' : 'Sand',
+        'Stone,Water' : 'Sand',
+        'Air,Stone' : 'Sandstorm',
+        'Stone,Air' : 'Sandstorm',
+        'Earth,Wave' : 'Mud',
+        'Wave,Earth' : 'Mud',
+        'Earth,Rain' : 'Mud',
+        'Rain,Earth' : 'Mud',
+        'Water,Sand' : 'Beach',
+        'Sand,Water' : 'Beach',
+        'Earth,Tree' : 'Forest',
+        'Tree,Earth' : 'Forest',
+        'Fire,Tree' : 'Coal',
+        'Tree,Fire' : 'Coal',
+        'Earth,Coal' : 'Diamond',
+        'Coal,Earth' : 'Diamond',
+        'Water,Coal' : 'Oil',
+        'Coal,Water' : 'Oil',
+        'Air,Tree' : 'Oxygen',
+        'Tree,Air' : 'Oxygen',
+        'Water,Volcano' : 'Island',
+        'Volcano,Water' : 'Island',
+        'Earth,Smoke' : 'Clay',
+        'Smoke,Earth' : 'Clay',
+        'Air,Lava' : 'Obsidian',
+        'Lava,Air' : 'Obsidian',
+        'Water,Lava' : 'Rock',
+        'Lava,Water' : 'Rock',
+        'Air,Obsidian' : 'Glass',
+        'Obsidian,Air' : 'Glass',
+        'Fire,Rock' : 'Metal',
+        'Rock,Fire' : 'Metal',
+        'Air,Metal' : 'Blade',
+        'Metal,Air' : 'Blade',
+        'Water,Blade' : 'Ice',
+        'Blade,Water' : 'Ice',
+        'Air,Ice' : 'Cold',
+        'Ice,Air' : 'Cold',
+        'Earth,Cold' : 'Snow',
+        'Cold,Earth' : 'Snow',
+        'Water,Cold' : 'Hail',
+        'Cold,Water' : 'Hail',
+        'Fire,Sand' : 'Glass',
+        'Sand,Fire' : 'Glass',
+        'Earth,Glass' : 'Crystal',
+        'Glass,Earth' : 'Crystal',
+        'Water,Crystal' : 'Mirror',
+        'Crystal,Water' : 'Mirror',
+        'Air,Crystal' : 'Rainbow',
+        'Crystal,Air' : 'Rainbow',
+        'Fire,Glass' : 'Light',
+        'Glass,Fire' : 'Light',
+        'Earth,Light' : 'Shadow',
+        'Light,Earth' : 'Shadow',
+        'Water,Light' : 'Reflection',
+        'Light,Water' : 'Reflection',
+        'Air,Light' : 'Sun',
+        'Light,Air' : 'Sun',
+        'Fire,Light' : 'Flare',
+        'Light,Fire' : 'Flare',
+        'Fire,Sun' : 'Supernova',
+        'Sun,Fire' : 'Supernova',
+        'Water,Sun' : 'Ocean',
+        'Sun,Water' : 'Ocean',
+        'Air,Sun' : 'Solar Wind',
+        'Sun,Air' : 'Solar Wind',
+        'Earth,Sun' : 'Desert',
+        'Sun,Earth' : 'Desert',
+        'Air,Smoke' : 'Pollution',
+        'Smoke,Air' : 'Pollution',
+        'Water,Pollution' : 'Waste',
+        'Pollution,Water' : 'Waste',
+        'Earth,Pollution' : 'Contamination',
+        'Pollution,Earth' : 'Contamination',
+        'Fire,Ice': 'Water',
+        'Ice,Fire': 'Water',
+        'Air,Fire': 'Plasma',
+        'Fire,Air': 'Plasma',
+        'Earth,Fire': 'Magma',
+        'Fire,Earth': 'Magma',
+        'Water,Magma': 'Volcano',
+        'Magma,Water': 'Volcano',
+        'Air,Magma': 'Ash',
+        'Magma,Air': 'Ash',
+        'Earth,Magma': 'Igneous Rock',
+        'Magma,Earth': 'Igneous Rock',
+        'Fire,Clay': 'Brick',
+        'Clay,Fire': 'Brick',
+        'Water,Clay': 'Pottery',
+        'Clay,Water': 'Pottery',
+        'Air,Clay': 'Dust Devil',
+        'Clay,Air': 'Dust Devil',
+        'Earth,Clay': 'Mudbrick',
+        'Clay,Earth': 'Mudbrick',
+        'Fire,Metal': 'Molten Metal',
+        'Metal,Fire': 'Molten Metal',
+        'Water,Metal': 'Rust',
+        'Metal,Water': 'Rust',
+        'Air,Metal': 'Blade',
+        'Metal,Air': 'Blade',
+        'Earth,Metal': 'Ore',
+        'Metal,Earth': 'Ore',
+        'Fire,Rain': 'Storm',
+        'Rain,Fire': 'Storm',
+        'Water,Rain': 'Flood',
+        'Rain,Water': 'Flood',
+        'Air,Rain': 'Storm',
+        'Rain,Air': 'Storm',
+        'Earth,Rain': 'Mudslide',
+        'Rain,Earth': 'Mudslide',
+        'Fire,Tree': 'Charcoal',
+        'Tree,Fire': 'Charcoal',
+        'Water,Tree': 'Forest',
+        'Tree,Water': 'Forest',
+        'Air,Tree': 'Sapling',
+        'Tree,Air': 'Sapling',
+        'Earth,Tree': 'Roots',
+        'Tree,Earth': 'Roots',
+        'Fire,Plant': 'Seeds',
+        'Plant,Fire': 'Seeds',
+        'Water,Plant': 'Growth',
+        'Plant,Water': 'Growth',
+        'Air,Plant': 'Pollen',
+        'Plant,Air': 'Pollen',
+        'Earth,Plant': 'Herb',
+        'Plant,Earth': 'Herb',
+        'Fire,Animal': 'Meat',
+        'Animal,Fire': 'Meat',
+        'Water,Animal': 'Fish',
+        'Animal,Water': 'Fish',
+        'Air,Animal': 'Bird',
+        'Animal,Air': 'Bird',
+        'Earth,Animal': 'Burrow',
+        'Animal,Earth': 'Burrow',
+        'Fire,Bird': 'Phoenix',
+        'Bird,Fire': 'Phoenix',
+        'Water,Bird': 'Duck',
+        'Bird,Water': 'Duck',
+        'Air,Bird': 'Eagle',
+        'Bird,Air': 'Eagle',
+        'Earth,Bird': 'Ostrich',
+        'Bird,Earth': 'Ostrich',
+        'Fire,Beast': 'Dragon',
+        'Beast,Fire': 'Dragon',
+        'Water,Beast': 'Leviathan',
+        'Beast,Water': 'Leviathan',
+        'Air,Beast': 'Griffin',
+        'Beast,Air': 'Griffin',
+        'Earth,Beast': 'Minotaur',
+        'Beast,Earth': 'Minotaur',
+        'Fire,Human': 'Ashes',
+        'Human,Fire': 'Ashes',
+        'Water,Human': 'Sweat',
+        'Human,Water': 'Sweat',
+        'Air,Human': 'Breath',
+        'Human,Air': 'Breath',
+        'Earth,Human': 'Grave',
+        'Human,Earth': 'Grave',
+        'Fire,Bone': 'Calcium',
+        'Bone,Fire': 'Calcium',
+        'Water,Bone': 'Marrow',
+        'Bone,Water': 'Marrow',
+        'Air,Bone': 'Dust',
+        'Bone,Air': 'Dust',
+        'Earth,Bone': 'Fossil',
+        'Bone,Earth': 'Fossil',
+        'Fire,Fossil': 'Oil',
+        'Fossil,Fire': 'Oil',
+        'Water,Fossil': 'Petrol',
+        'Fossil,Water': 'Petrol',
+        'Air,Fossil': 'Natural Gas',
+        'Fossil,Air': 'Natural Gas',
+        'Earth,Fossil': 'Amber',
+        'Fossil,Earth': 'Amber',
+        'Fire,Amber': 'Resin',
+        'Amber,Fire': 'Resin',
+        'Water,Amber': 'Preservation',
+        'Amber,Water': 'Preservation',
+        'Air,Amber': 'Electricity',
+        'Amber,Air': 'Electricity',
+        'Earth,Amber': 'Fossilized Tree',
+        'Amber,Earth': 'Fossilized Tree',
+        'Fire,Insect': 'Torch',
+        'Insect,Fire': 'Torch',
+        'Water,Insect': 'Mosquito',
+        'Insect,Water': 'Mosquito',
+        'Air,Insect': 'Bee',
+        'Insect,Air': 'Bee',
+        'Earth,Insect': 'Beetle',
+        'Insect,Earth': 'Beetle',
+        'Fire,Reptile': 'Lizard',
+        'Reptile,Fire': 'Lizard',
+        'Water,Reptile': 'Crocodile',
+        'Reptile,Water': 'Crocodile',
+        'Air,Reptile': 'Dragon',
+        'Reptile,Air': 'Dragon',
+        'Earth,Reptile': 'Turtle',
+        'Reptile,Earth': 'Turtle',
+        'Fire,Amphibian': 'Salamander',
+        'Amphibian,Fire': 'Salamander',
+        'Water,Amphibian': 'Frog',
+        'Amphibian,Water': 'Frog',
+        'Air,Amphibian': 'Toad',
+        'Amphibian,Air': 'Toad',
+        'Earth,Amphibian': 'Newt',
+        'Amphibian,Earth': 'Newt',
+        'Fire,Mammal': 'Fur',
+        'Mammal,Fire': 'Fur',
+        'Water,Mammal': 'Whale',
+        'Mammal,Water': 'Whale',
+        'Air,Mammal': 'Bat',
+        'Mammal,Air': 'Bat',
+        'Earth,Mammal': 'Mole',
+        'Mammal,Earth': 'Mole',
+        'Fire,Bird': 'Feathers',
+        'Bird,Fire': 'Feathers',
+        'Water,Bird': 'Penguin',
+        'Bird,Water': 'Penguin',
+        'Air,Bird': 'Albatross',
+        'Bird,Air': 'Albatross',
+        'Earth,Bird': 'Emu',
+        'Bird,Earth': 'Emu',
+        'Fire,Fish': 'Grilled Fish',
+        'Fish,Fire': 'Grilled Fish',
+        'Water,Fish': 'School',
+        'Fish,Water': 'School',
+        'Air,Fish': 'Flying Fish',
+        'Fish,Air': 'Flying Fish',
+        'Earth,Fish': 'Mudskipper',
+        'Fish,Earth': 'Mudskipper',
+        'Fire,Snow': 'Melt',
+        'Snow,Fire': 'Melt',
+        'Water,Snow': 'Slush',
+        'Snow,Water': 'Slush',
+        'Air,Snow': 'Blizzard',
+        'Snow,Air': 'Blizzard',
+        'Earth,Snow': 'Permafrost',
+        'Snow,Earth': 'Permafrost',
+        'Fire,Sandstorm': 'Glassstorm',
+        'Sandstorm,Fire': 'Glassstorm',
+        'Water,Sandstorm': 'Mudstorm',
+        'Sandstorm,Water': 'Mudstorm',
+        'Air,Sandstorm': 'Haboob',
+        'Sandstorm,Air': 'Haboob',
+        'Earth,Sandstorm': 'Quicksand',
+        'Sandstorm,Earth': 'Quicksand',
+        'Fire,Swamp': 'Bogfire',
+        'Swamp,Fire': 'Bogfire',
+        'Water,Swamp': 'Marsh',
+        'Swamp,Water': 'Marsh',
+        'Air,Swamp': 'Fog',
+        'Swamp,Air': 'Fog',
+        'Earth,Swamp': 'Peat',
+        'Swamp,Earth': 'Peat',
+        'Fire,Peat': 'Fuel',
+        'Peat,Fire': 'Fuel',
+        'Water,Peat': 'Bogs',
+        'Peat,Water': 'Bogs',
+        'Air,Peat': 'Soot',
+        'Peat,Air': 'Soot',
+        'Earth,Peat': 'Coal',
+        'Peat,Earth': 'Coal',
+        'Fire,Sword': 'Molten Blade',
+        'Sword,Fire': 'Molten Blade',
+        'Water,Sword': 'Rusty Blade',
+        'Sword,Water': 'Rusty Blade',
+        'Air,Sword': 'Swift Blade',
+        'Sword,Air': 'Swift Blade',
+        'Earth,Sword': 'Claymore',
+        'Sword,Earth': 'Claymore',
+        'Fire,Armor': 'Flame Armor',
+        'Armor,Fire': 'Flame Armor',
+        'Water,Armor': 'Aqua Armor',
+        'Armor,Water': 'Aqua Armor',
+        'Air,Armor': 'Wind Shield',
+        'Armor,Air': 'Wind Shield',
+        'Earth,Armor': 'Stone Plate',
+        'Armor,Earth': 'Stone Plate',
+        'Fire,Crystal': 'Red Crystal',
+        'Crystal,Fire': 'Red Crystal',
+        'Water,Crystal': 'Blue Crystal',
+        'Crystal,Water': 'Blue Crystal',
+        'Air,Crystal': 'White Crystal',
+        'Crystal,Air': 'White Crystal',
+        'Earth,Crystal': 'Green Crystal',
+        'Crystal,Earth': 'Green Crystal',
+        'Fire,Mirror': 'Laser',
+        'Mirror,Fire': 'Laser',
+        'Water,Mirror': 'Reflection Pool',
+        'Mirror,Water': 'Reflection Pool',
+        'Air,Mirror': 'Illusion',
+        'Mirror,Air': 'Illusion',
+        'Earth,Mirror': 'Portal',
+        'Mirror,Earth': 'Portal',
+        'Fire,Sun': 'Solar Flare',
+        'Sun,Fire': 'Solar Flare',
+        'Water,Sun': 'Rainbow',
+        'Sun,Water': 'Rainbow',
+        'Air,Sun': 'Aurora',
+        'Sun,Air': 'Aurora',
+        'Earth,Sun': 'Desert Rose',
+        'Sun,Earth': 'Desert Rose',
+        'Fire,Storm': 'Wildfire',
+        'Storm,Fire': 'Wildfire',
+        'Water,Storm': 'Hurricane',
+        'Storm,Water': 'Hurricane',
+        'Air,Storm': 'Tornado',
+        'Storm,Air': 'Tornado',
+        'Earth,Storm': 'Earthquake',
+        'Storm,Earth': 'Earthquake',
+        'Fire,Volcano': 'Eruption',
+        'Volcano,Fire': 'Eruption',
+        'Water,Volcano': 'Geyser',
+        'Volcano,Water': 'Geyser',
+        'Air,Volcano': 'Ash Cloud',
+        'Volcano,Air': 'Ash Cloud',
+        'Earth,Volcano': 'Magma Chamber',
+        'Volcano,Earth': 'Magma Chamber',
+        'Fire,Forest': 'Wildfire',
+        'Forest,Fire': 'Wildfire',
+        'Water,Forest': 'Rainforest',
+        'Forest,Water': 'Rainforest',
+        'Air,Forest': 'Windy Woods',
+        'Forest,Air': 'Windy Woods',
+        'Earth,Forest': 'Jungle',
+        'Forest,Earth': 'Jungle',
+        'Fire,Swamp': 'Miasma',
+        'Swamp,Fire': 'Miasma',
+        'Water,Swamp': 'Bog',
+        'Swamp,Water': 'Bog',
+        'Air,Swamp': 'Mist',
+        'Swamp,Air': 'Mist',
+        'Earth,Swamp': 'Quagmire',
+        'Swamp,Earth': 'Quagmire',
+        'Fire,Mountain': 'Volcano',
+        'Mountain,Fire': 'Volcano',
+        'Water,Mountain': 'Waterfall',
+        'Mountain,Water': 'Waterfall',
+        'Air,Mountain': 'Cliff',
+        'Mountain,Air': 'Cliff',
+        'Earth,Mountain': 'Cave',
+        'Mountain,Earth': 'Cave',
+        'Fire,Cave': 'Lava Chamber',
+        'Cave,Fire': 'Lava Chamber',
+        'Water,Cave': 'Underground Lake',
+        'Cave,Water': 'Underground Lake',
+        'Air,Cave': 'Echo',
+        'Cave,Air': 'Echo',
+        'Earth,Cave': 'Stalactite',
+        'Cave,Earth': 'Stalactite',
+        'Fire,Oasis': 'Mirage',
+        'Oasis,Fire': 'Mirage',
+        'Water,Oasis': 'Palm Tree',
+        'Oasis,Water': 'Palm Tree',
+        'Air,Oasis': 'Desert Breeze',
+        'Oasis,Air': 'Desert Breeze',
+        'Earth,Oasis': 'Sand Dunes',
+        'Oasis,Earth': 'Sand Dunes',
+        'Fire,Desert': 'Sahara',
+        'Desert,Fire': 'Sahara',
+        'Water,Desert': 'Mirage',
+        'Desert,Water': 'Mirage',
+        'Air,Desert': 'Dust Devil',
+        'Desert,Air': 'Dust Devil',
+        'Earth,Desert': 'Sandstorm',
+        'Desert,Earth': 'Sandstorm',
+        'Fire,Rainforest': 'Charcoal',
+        'Rainforest,Fire': 'Charcoal',
+        'Water,Rainforest': 'Swamp',
+        'Rainforest,Water': 'Swamp',
+        'Air,Rainforest': 'Hurricane',
+        'Rainforest,Air': 'Hurricane',
+        'Earth,Rainforest': 'Fertile Soil',
+        'Rainforest,Earth': 'Fertile Soil',
+        'Fire,Tundra': 'Permafrost',
+        'Tundra,Fire': 'Permafrost',
+        'Water,Tundra': 'Iceberg',
+        'Tundra,Water': 'Iceberg',
+        'Air,Tundra': 'Blizzard',
+        'Tundra,Air': 'Blizzard',
+        'Earth,Tundra': 'Frozen Earth',
+        'Tundra,Earth': 'Frozen Earth',
+        'Fire,Canyon': 'Fissure',
+        'Canyon,Fire': 'Fissure',
+        'Water,Canyon': 'River',
+        'Canyon,Water': 'River',
+        'Air,Canyon': 'Echo',
+        'Canyon,Air': 'Echo',
+        'Earth,Canyon': 'Landslide',
+        'Canyon,Earth': 'Landslide',
+        'Fire,River': 'Boiling Stream',
+        'River,Fire': 'Boiling Stream',
+        'Water,River': 'Flood',
+        'River,Water': 'Flood',
+        'Air,River': 'Whirlpool',
+        'River,Air': 'Whirlpool',
+        'Earth,River': 'Delta',
+        'River,Earth': 'Delta',
+        'Fire,Ocean': 'Boiling Sea',
+        'Ocean,Fire': 'Boiling Sea',
+        'Water,Ocean': 'Tsunami',
+        'Ocean,Water': 'Tsunami',
+        'Air,Ocean': 'Typhoon',
+        'Ocean,Air': 'Typhoon',
+        'Earth,Ocean': 'Continental Shelf',
+        'Ocean,Earth': 'Continental Shelf',
+        'Fire,Lake': 'Hot Spring',
+        'Lake,Fire': 'Hot Spring',
+        'Water,Lake': 'Pond',
+        'Lake,Water': 'Pond',
+        'Air,Lake': 'Breeze',
+        'Lake,Air': 'Breeze',
+        'Earth,Lake': 'Shoreline',
+        'Lake,Earth': 'Shoreline',
+        'Fire,Field': 'Burnt Field',
+        'Field,Fire': 'Burnt Field',
+        'Water,Field': 'Muddy Field',
+        'Field,Water': 'Muddy Field',
+        'Air,Field': 'Gusty Field',
+        'Field,Air': 'Gusty Field',
+        'Earth,Field': 'Plowed Field',
+        'Field,Earth': 'Plowed Field',
+        'Fire,Cliff': 'Lava Flow',
+        'Cliff,Fire': 'Lava Flow',
+        'Water,Cliff': 'Waterfall',
+        'Cliff,Water': 'Waterfall',
+        'Air,Cliff': 'Updraft',
+        'Cliff,Air': 'Updraft',
+        'Earth,Cliff': 'Landslide',
+        'Cliff,Earth': 'Landslide',
+        'Fire,Island': 'Volcanic Island',
+        'Island,Fire': 'Volcanic Island',
+        'Water,Island': 'Lagoon',
+        'Island,Water': 'Lagoon',
+        'Air,Island': 'Tropical Breeze',
+        'Island,Air': 'Tropical Breeze',
+        'Earth,Island': 'Coral Reef',
+        'Island,Earth': 'Coral Reef'
+    };
+
+
+        function addDragListeners(element) {
+            element.addEventListener('dragstart', dragStart);
+            element.addEventListener('dragend', dragEnd);
+            element.addEventListener('contextmenu', showContextMenu);
+        }
+
+        elements.querySelectorAll('.element').forEach(addDragListeners);
+
+        workspace.addEventListener('dragover', dragOver);
+        workspace.addEventListener('drop', drop);
+
+        function dragStart(e) {
+            draggedElement = this;
+            e.dataTransfer.setData('text/plain', this.textContent);
+            setTimeout(() => this.style.opacity = '0.5', 0);
+            isDraggingWorkspaceElement = this.classList.contains('workspace-element');
+        }
+
+        function dragEnd() {
+            this.style.opacity = '1';
+            if (isDraggingWorkspaceElement && !this.parentElement) {
+                isDraggingWorkspaceElement = false;
+                draggedElement = null;
+                return;
+            }
+            draggedElement = null;
+            isDraggingWorkspaceElement = false;
+        }
+
+        function dragOver(e) {
+            e.preventDefault();
+        }
+
+        function drop(e) {
+            e.preventDefault();
+            if (draggedElement) {
+                const rect = workspace.getBoundingClientRect();
+                let x = e.clientX - rect.left + workspace.scrollLeft;
+                let y = e.clientY - rect.top + workspace.scrollTop;
+
+                if (isDraggingWorkspaceElement) {
+                    draggedElement.style.left = `${x}px`;
+                    draggedElement.style.top = `${y}px`;
+                } else {
+                    const newElement = createWorkspaceElement(draggedElement.textContent);
+                    newElement.style.left = `${x}px`;
+                    newElement.style.top = `${y}px`;
+                    workspace.appendChild(newElement);
+                    draggedElement = newElement;
+                }
+
+                checkCombination(draggedElement);
+            }
+        }
+
+        function checkCombination(newElement) {
+            const workspaceElements = workspace.querySelectorAll('.workspace-element');
+            workspaceElements.forEach(element => {
+                if (element !== newElement && isOverlapping(newElement, element)) {
+                    const combo1 = [newElement.textContent, element.textContent].sort().join(',');
+                    const combo2 = [element.textContent, newElement.textContent].sort().join(',');
+                    
+                    if (recipes[combo1] || recipes[combo2]) {
+                        const result = recipes[combo1] || recipes[combo2];
+                        const combinedElement = createWorkspaceElement(result);
+                        const x = (parseFloat(newElement.style.left) + parseFloat(element.style.left)) / 2;
+                        const y = (parseFloat(newElement.style.top) + parseFloat(element.style.top)) / 2;
+                        combinedElement.style.left = `${x}px`;
+                        combinedElement.style.top = `${y}px`;
+                        workspace.removeChild(newElement);
+                        workspace.removeChild(element);
+                        workspace.appendChild(combinedElement);
+                        addToElements(result);
+                    }
+                }
+            });
+        }
+
+        function isOverlapping(el1, el2) {
+            const rect1 = el1.getBoundingClientRect();
+            const rect2 = el2.getBoundingClientRect();
+            return !(rect1.right < rect2.left || 
+                     rect1.left > rect2.right || 
+                     rect1.bottom < rect2.top || 
+                     rect1.top > rect2.bottom);
+        }
+
+        function createWorkspaceElement(name) {
+            const newElement = document.createElement('div');
+            newElement.className = 'workspace-element';
+            newElement.textContent = name;
+            newElement.draggable = true;
+            addDragListeners(newElement);
+            return newElement;
+        }
+
+        function addToElements(name) {
+            if (!elementExists(name)) {
+                const newElement = document.createElement('div');
+                newElement.className = 'element';
+                newElement.textContent = name;
+                newElement.draggable = true;
+                addDragListeners(newElement);
+                
+                if (elements.offsetHeight + newElement.offsetHeight > elementsContainer.offsetHeight) {
+                    elementsOverflow.appendChild(newElement);
+                } else {
+                    elements.appendChild(newElement);
+                }
+            }
+        }
+
+        function elementExists(name) {
+            return Array.from(elements.children).some(el => el.textContent === name) ||
+                   Array.from(elementsOverflow.children).some(el => el.textContent === name);
+        }
+
+        function showContextMenu(e) {
+            e.preventDefault();
+            if (this.classList.contains('workspace-element')) {
+                contextMenu.style.display = 'block';
+                contextMenu.style.left = `${e.pageX}px`;
+                contextMenu.style.top = `${e.pageY}px`;
+                contextMenuTarget = this;
+            }
+        }
+
+        removeElementOption.addEventListener('click', () => {
+            if (contextMenuTarget && contextMenuTarget.classList.contains('workspace-element')) {
+                workspace.removeChild(contextMenuTarget);
+                contextMenu.style.display = 'none';
+                contextMenuTarget = null;
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('#contextMenu') === null) {
+                contextMenu.style.display = 'none';
+            }
+        });
+
+        // Search functionality
+        searchBox.addEventListener('input', function() {
+            const searchTerm = this.value.toLowerCase();
+            const allElementDivs = [...elements.querySelectorAll('.element'), ...elementsOverflow.querySelectorAll('.element')];
+            
+            allElementDivs.forEach(div => {
+                const elementName = div.textContent.toLowerCase();
+                if (elementName.includes(searchTerm)) {
+                    div.style.display = 'inline-block';
+                } else {
+                    div.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
