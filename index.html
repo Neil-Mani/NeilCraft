@@ -101,6 +101,22 @@
         .gamename{
             margin-left: 800px;
         }
+        #save-load-container {
+            margin-top: 10px;
+            display: flex;
+            justify-content: space-between;
+        }
+        #save-button, #load-button {
+            padding: 5px 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+        #load-button {
+            background-color: #008CBA;
+        }
     </style>
 </head>
 <body>
@@ -118,6 +134,10 @@
                 </div>
             </div>
             <div id="elements-overflow"></div>
+            <div id="save-load-container">
+                <button id="save-button">Save Progress</button>
+                <button id="load-button">Load Progress</button>
+            </div>
         </div>
         <div id="workspace-container">
             <h3>Drag elements here to combine</h3>
@@ -766,6 +786,57 @@
                 }
             });
         });
+
+        function saveProgress() {
+            const discoveredElements = Array.from(document.querySelectorAll('.element')).map(el => el.textContent);
+            const workspaceElements = Array.from(document.querySelectorAll('.workspace-element')).map(el => ({
+                name: el.textContent,
+                x: el.style.left,
+                y: el.style.top
+            }));
+            const gameState = {
+                discoveredElements: discoveredElements,
+                workspaceElements: workspaceElements
+            };
+            localStorage.setItem('neilcraftState', JSON.stringify(gameState));
+            alert('Progress saved successfully!');
+        }
+
+        function loadProgress() {
+            const savedState = localStorage.getItem('neilcraftState');
+            if (savedState) {
+                const gameState = JSON.parse(savedState);
+                
+                // Clear current elements and workspace
+                elements.innerHTML = '';
+                elementsOverflow.innerHTML = '';
+                workspace.innerHTML = '';
+                
+                // Load discovered elements
+                gameState.discoveredElements.forEach(elementName => {
+                    addToElements(elementName);
+                });
+                
+                // Load workspace elements
+                gameState.workspaceElements.forEach(element => {
+                    const newElement = createWorkspaceElement(element.name);
+                    newElement.style.left = element.x;
+                    newElement.style.top = element.y;
+                    workspace.appendChild(newElement);
+                });
+                
+                alert('Progress loaded successfully!');
+            } else {
+                alert('No saved progress found.');
+            }
+        }
+
+        // Add event listeners for save and load buttons
+        document.getElementById('save-button').addEventListener('click', saveProgress);
+        document.getElementById('load-button').addEventListener('click', loadProgress);
+
+        // Load progress when the page loads
+        window.addEventListener('load', loadProgress);
     </script>
 </body>
 </html>
