@@ -104,18 +104,39 @@
         #save-load-container {
             margin-top: 10px;
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: center;
         }
-        #save-button, #load-button {
+
+        .button-row {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 10px;
+            width: 100%;
+        }
+
+        #save-button, #load-button, #reset-button {
             padding: 5px 10px;
-            background-color: #4CAF50;
             color: white;
             border: none;
             border-radius: 3px;
             cursor: pointer;
+            margin: 0 5px;
+            width: 120px;  /* Set a fixed width for all buttons */
         }
+
+        #save-button {
+            background-color: #4CAF50;
+        }
+
         #load-button {
             background-color: #008CBA;
+        }
+
+        #reset-button {
+            background-color: #f44336;
+            margin-top: 10px; /* Add some space above the reset button */
+            margin-left: 45px;
         }
     </style>
 </head>
@@ -134,10 +155,11 @@
                 </div>
             </div>
             <div id="elements-overflow"></div>
-            <div id="save-load-container">
+            <div class="button-row">
                 <button id="save-button">Save Progress</button>
                 <button id="load-button">Load Progress</button>
             </div>
+            <button id="reset-button">Reset Progress</button>
         </div>
         <div id="workspace-container">
             <h3>Drag elements here to combine</h3>
@@ -837,6 +859,33 @@
 
         // Load progress when the page loads
         window.addEventListener('load', loadProgress);
+
+        function resetProgress() {
+            if (confirm('Are you sure you want to reset your progress? This action cannot be undone.')) {
+                // Clear local storage
+                localStorage.removeItem('neilcraftState');
+                
+                // Reset elements to initial state
+                elements.innerHTML = '';
+                elementsOverflow.innerHTML = '';
+                workspace.innerHTML = '';
+                
+                // Add initial elements
+                ['Fire', 'Water', 'Earth', 'Air'].forEach(elementName => {
+                    const newElement = document.createElement('div');
+                    newElement.className = 'element';
+                    newElement.textContent = elementName;
+                    newElement.draggable = true;
+                    addDragListeners(newElement);
+                    elements.appendChild(newElement);
+                });
+                
+                alert('Progress has been reset successfully!');
+            }
+        }
+
+        // Add event listener for reset button
+        document.getElementById('reset-button').addEventListener('click', resetProgress);
     </script>
 </body>
 </html>
