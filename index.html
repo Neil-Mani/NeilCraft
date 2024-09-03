@@ -27,10 +27,9 @@
         }
         #elements-section {
             width: 220px;
-            padding-right: 20px;
-            border-right: 2px solid #ccc;
             display: flex;
             flex-direction: column;
+            height: 100%;
         }
         #search-box {
             margin-bottom: 10px;
@@ -38,7 +37,7 @@
             width: 100%;
         }
         #elements-container {
-            height: 300px;
+            flex-grow: 1;
             overflow-y: auto;
             border: 2px solid #ccc;
             border-radius: 5px;
@@ -47,7 +46,7 @@
         }
         #elements {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            grid-template-columns: 1fr;
             gap: 5px;
         }
         .element {
@@ -105,15 +104,11 @@
         }
         #save-load-container {
             margin-top: 10px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
         .button-row {
             display: flex;
-            justify-content: center;
+            justify-content: space-between;
             margin-bottom: 10px;
-            width: 100%;
         }
         #save-button, #load-button, #reset-button {
             padding: 5px 10px;
@@ -121,8 +116,7 @@
             border: none;
             border-radius: 3px;
             cursor: pointer;
-            margin: 0 5px;
-            width: 120px;
+            width: 48%;
         }
         #save-button {
             background-color: #4CAF50;
@@ -132,7 +126,8 @@
         }
         #reset-button {
             background-color: #f44336;
-            margin-top: 10px;
+            width: 100%;
+            margin-top: 5px;
         }
     </style>
 </head>
