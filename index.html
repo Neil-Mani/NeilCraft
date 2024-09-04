@@ -43,11 +43,12 @@
             border-radius: 5px;
             padding: 10px;
             margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
         }
         #elements {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 5px;
+            flex-grow: 1;
+            overflow-y: auto;
         }
         .element {
             padding: 10px;
@@ -58,6 +59,7 @@
             user-select: none;
             text-align: center;
             font-size: 14px;
+            margin-bottom: 5px;
         }
         h2 {
             margin-top: 0;
@@ -145,7 +147,6 @@
                     <div class="element" draggable="true">Air</div>
                 </div>
             </div>
-            <div id="elements-overflow"></div>
             <div class="button-row">
                 <button id="save-button">Save Progress</button>
                 <button id="load-button">Load Progress</button>
@@ -643,239 +644,223 @@
     };
 
 
-        function addDragListeners(element) {
-            element.addEventListener('dragstart', dragStart);
-            element.addEventListener('dragend', dragEnd);
-            element.addEventListener('contextmenu', showContextMenu);
+    function addDragListeners(element) {
+    element.addEventListener('dragstart', dragStart);
+    element.addEventListener('dragend', dragEnd);
+    element.addEventListener('contextmenu', showContextMenu);
+}
+
+elements.querySelectorAll('.element').forEach(addDragListeners);
+
+workspace.addEventListener('dragover', dragOver);
+workspace.addEventListener('drop', drop);
+
+function dragStart(e) {
+    draggedElement = this;
+    e.dataTransfer.setData('text/plain', this.textContent);
+    setTimeout(() => this.style.opacity = '0.5', 0);
+    isDraggingWorkspaceElement = this.classList.contains('workspace-element');
+}
+
+function dragEnd() {
+    this.style.opacity = '1';
+    if (isDraggingWorkspaceElement && !this.parentElement) {
+        isDraggingWorkspaceElement = false;
+        draggedElement = null;
+        return;
+    }
+    draggedElement = null;
+    isDraggingWorkspaceElement = false;
+}
+
+function dragOver(e) {
+    e.preventDefault();
+}
+
+function drop(e) {
+    e.preventDefault();
+    if (draggedElement) {
+        const rect = workspace.getBoundingClientRect();
+        let x = e.clientX - rect.left + workspace.scrollLeft;
+        let y = e.clientY - rect.top + workspace.scrollTop;
+
+        if (isDraggingWorkspaceElement) {
+            draggedElement.style.left = `${x}px`;
+            draggedElement.style.top = `${y}px`;
+        } else {
+            const newElement = createWorkspaceElement(draggedElement.textContent);
+            newElement.style.left = `${x}px`;
+            newElement.style.top = `${y}px`;
+            workspace.appendChild(newElement);
+            draggedElement = newElement;
         }
 
-        elements.querySelectorAll('.element').forEach(addDragListeners);
+        checkCombination(draggedElement);
+    }
+}
 
-        workspace.addEventListener('dragover', dragOver);
-        workspace.addEventListener('drop', drop);
-
-        function dragStart(e) {
-            draggedElement = this;
-            e.dataTransfer.setData('text/plain', this.textContent);
-            setTimeout(() => this.style.opacity = '0.5', 0);
-            isDraggingWorkspaceElement = this.classList.contains('workspace-element');
-        }
-
-        function dragEnd() {
-            this.style.opacity = '1';
-            if (isDraggingWorkspaceElement && !this.parentElement) {
-                isDraggingWorkspaceElement = false;
-                draggedElement = null;
-                return;
-            }
-            draggedElement = null;
-            isDraggingWorkspaceElement = false;
-        }
-
-        function dragOver(e) {
-            e.preventDefault();
-        }
-
-        function drop(e) {
-            e.preventDefault();
-            if (draggedElement) {
-                const rect = workspace.getBoundingClientRect();
-                let x = e.clientX - rect.left + workspace.scrollLeft;
-                let y = e.clientY - rect.top + workspace.scrollTop;
-
-                if (isDraggingWorkspaceElement) {
-                    draggedElement.style.left = `${x}px`;
-                    draggedElement.style.top = `${y}px`;
-                } else {
-                    const newElement = createWorkspaceElement(draggedElement.textContent);
-                    newElement.style.left = `${x}px`;
-                    newElement.style.top = `${y}px`;
-                    workspace.appendChild(newElement);
-                    draggedElement = newElement;
-                }
-
-                checkCombination(draggedElement);
-            }
-        }
-
-        function checkCombination(newElement) {
-            const workspaceElements = workspace.querySelectorAll('.workspace-element');
-            workspaceElements.forEach(element => {
-                if (element !== newElement && isOverlapping(newElement, element)) {
-                    const combo1 = [newElement.textContent, element.textContent].sort().join(',');
-                    const combo2 = [element.textContent, newElement.textContent].sort().join(',');
-                    
-                    if (recipes[combo1] || recipes[combo2]) {
-                        const result = recipes[combo1] || recipes[combo2];
-                        const combinedElement = createWorkspaceElement(result);
-                        const x = (parseFloat(newElement.style.left) + parseFloat(element.style.left)) / 2;
-                        const y = (parseFloat(newElement.style.top) + parseFloat(element.style.top)) / 2;
-                        combinedElement.style.left = `${x}px`;
-                        combinedElement.style.top = `${y}px`;
-                        workspace.removeChild(newElement);
-                        workspace.removeChild(element);
-                        workspace.appendChild(combinedElement);
-                        addToElements(result);
-                    }
-                }
-            });
-        }
-
-        function isOverlapping(el1, el2) {
-            const rect1 = el1.getBoundingClientRect();
-            const rect2 = el2.getBoundingClientRect();
-            return !(rect1.right < rect2.left || 
-                     rect1.left > rect2.right || 
-                     rect1.bottom < rect2.top || 
-                     rect1.top > rect2.bottom);
-        }
-
-        function createWorkspaceElement(name) {
-            const newElement = document.createElement('div');
-            newElement.className = 'workspace-element';
-            newElement.textContent = name;
-            newElement.draggable = true;
-            addDragListeners(newElement);
-            return newElement;
-        }
-
-        function addToElements(name) {
-            if (!elementExists(name)) {
-                const newElement = document.createElement('div');
-                newElement.className = 'element';
-                newElement.textContent = name;
-                newElement.draggable = true;
-                addDragListeners(newElement);
-                
-                if (elements.offsetHeight + newElement.offsetHeight > elementsContainer.offsetHeight) {
-                    elementsOverflow.appendChild(newElement);
-                } else {
-                    elements.appendChild(newElement);
-                }
-            }
-        }
-
-        function elementExists(name) {
-            return Array.from(elements.children).some(el => el.textContent === name) ||
-                   Array.from(elementsOverflow.children).some(el => el.textContent === name);
-        }
-
-        function showContextMenu(e) {
-            e.preventDefault();
-            if (this.classList.contains('workspace-element')) {
-                contextMenu.style.display = 'block';
-                contextMenu.style.left = `${e.pageX}px`;
-                contextMenu.style.top = `${e.pageY}px`;
-                contextMenuTarget = this;
-            }
-        }
-
-        removeElementOption.addEventListener('click', () => {
-            if (contextMenuTarget && contextMenuTarget.classList.contains('workspace-element')) {
-                workspace.removeChild(contextMenuTarget);
-                contextMenu.style.display = 'none';
-                contextMenuTarget = null;
-            }
-        });
-
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('#contextMenu') === null) {
-                contextMenu.style.display = 'none';
-            }
-        });
-
-        // Search functionality
-        searchBox.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            const allElementDivs = [...elements.querySelectorAll('.element'), ...elementsOverflow.querySelectorAll('.element')];
+function checkCombination(newElement) {
+    const workspaceElements = workspace.querySelectorAll('.workspace-element');
+    workspaceElements.forEach(element => {
+        if (element !== newElement && isOverlapping(newElement, element)) {
+            const combo1 = [newElement.textContent, element.textContent].sort().join(',');
+            const combo2 = [element.textContent, newElement.textContent].sort().join(',');
             
-            allElementDivs.forEach(div => {
-                const elementName = div.textContent.toLowerCase();
-                if (elementName.includes(searchTerm)) {
-                    div.style.display = 'inline-block';
-                } else {
-                    div.style.display = 'none';
-                }
-            });
+            if (recipes[combo1] || recipes[combo2]) {
+                const result = recipes[combo1] || recipes[combo2];
+                const combinedElement = createWorkspaceElement(result);
+                const x = (parseFloat(newElement.style.left) + parseFloat(element.style.left)) / 2;
+                const y = (parseFloat(newElement.style.top) + parseFloat(element.style.top)) / 2;
+                combinedElement.style.left = `${x}px`;
+                combinedElement.style.top = `${y}px`;
+                workspace.removeChild(newElement);
+                workspace.removeChild(element);
+                workspace.appendChild(combinedElement);
+                addToElements(result);
+            }
+        }
+    });
+}
+
+function isOverlapping(el1, el2) {
+    const rect1 = el1.getBoundingClientRect();
+    const rect2 = el2.getBoundingClientRect();
+    return !(rect1.right < rect2.left || 
+             rect1.left > rect2.right || 
+             rect1.bottom < rect2.top || 
+             rect1.top > rect2.bottom);
+}
+
+function createWorkspaceElement(name) {
+    const newElement = document.createElement('div');
+    newElement.className = 'workspace-element';
+    newElement.textContent = name;
+    newElement.draggable = true;
+    addDragListeners(newElement);
+    return newElement;
+}
+
+function addToElements(name) {
+    if (!elementExists(name)) {
+        const newElement = document.createElement('div');
+        newElement.className = 'element';
+        newElement.textContent = name;
+        newElement.draggable = true;
+        addDragListeners(newElement);
+        elements.appendChild(newElement);
+    }
+}
+
+function elementExists(name) {
+    return Array.from(elements.children).some(el => el.textContent === name);
+}
+
+function showContextMenu(e) {
+    e.preventDefault();
+    if (this.classList.contains('workspace-element')) {
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${e.pageX}px`;
+        contextMenu.style.top = `${e.pageY}px`;
+        contextMenuTarget = this;
+    }
+}
+
+removeElementOption.addEventListener('click', () => {
+    if (contextMenuTarget && contextMenuTarget.classList.contains('workspace-element')) {
+        workspace.removeChild(contextMenuTarget);
+        contextMenu.style.display = 'none';
+        contextMenuTarget = null;
+    }
+});
+
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#contextMenu') === null) {
+        contextMenu.style.display = 'none';
+    }
+});
+
+searchBox.addEventListener('input', function() {
+    const searchTerm = this.value.toLowerCase();
+    const allElementDivs = elements.querySelectorAll('.element');
+    
+    allElementDivs.forEach(div => {
+        const elementName = div.textContent.toLowerCase();
+        if (elementName.includes(searchTerm)) {
+            div.style.display = 'block';
+        } else {
+            div.style.display = 'none';
+        }
+    });
+});
+
+function saveProgress() {
+    const discoveredElements = Array.from(elements.querySelectorAll('.element')).map(el => el.textContent);
+    const workspaceElements = Array.from(workspace.querySelectorAll('.workspace-element')).map(el => ({
+        name: el.textContent,
+        x: el.style.left,
+        y: el.style.top
+    }));
+    const gameState = {
+        discoveredElements: discoveredElements,
+        workspaceElements: workspaceElements
+    };
+    localStorage.setItem('neilcraftState', JSON.stringify(gameState));
+    alert('Progress saved successfully!');
+}
+
+function loadProgress() {
+    const savedState = localStorage.getItem('neilcraftState');
+    if (savedState) {
+        const gameState = JSON.parse(savedState);
+        
+        // Clear current elements and workspace
+        elements.innerHTML = '';
+        workspace.innerHTML = '';
+        
+        // Load discovered elements
+        gameState.discoveredElements.forEach(elementName => {
+            addToElements(elementName);
         });
+        
+        // Load workspace elements
+        gameState.workspaceElements.forEach(element => {
+            const newElement = createWorkspaceElement(element.name);
+            newElement.style.left = element.x;
+            newElement.style.top = element.y;
+            workspace.appendChild(newElement);
+        });
+        
+        alert('Progress loaded successfully!');
+    } else {
+        alert('No saved progress found.');
+    }
+}
 
-        function saveProgress() {
-            const discoveredElements = Array.from(document.querySelectorAll('.element')).map(el => el.textContent);
-            const workspaceElements = Array.from(document.querySelectorAll('.workspace-element')).map(el => ({
-                name: el.textContent,
-                x: el.style.left,
-                y: el.style.top
-            }));
-            const gameState = {
-                discoveredElements: discoveredElements,
-                workspaceElements: workspaceElements
-            };
-            localStorage.setItem('neilcraftState', JSON.stringify(gameState));
-            alert('Progress saved successfully!');
-        }
+function resetProgress() {
+    if (confirm('Are you sure you want to reset your progress? This action cannot be undone.')) {
+        // Clear local storage
+        localStorage.removeItem('neilcraftState');
+        
+        // Reset elements to initial state
+        elements.innerHTML = '';
+        workspace.innerHTML = '';
+        
+        // Add initial elements
+        ['Fire', 'Water', 'Earth', 'Air'].forEach(elementName => {
+            addToElements(elementName);
+        });
+        
+        alert('Progress has been reset successfully!');
+    }
+}
 
-        function loadProgress() {
-            const savedState = localStorage.getItem('neilcraftState');
-            if (savedState) {
-                const gameState = JSON.parse(savedState);
-                
-                // Clear current elements and workspace
-                elements.innerHTML = '';
-                elementsOverflow.innerHTML = '';
-                workspace.innerHTML = '';
-                
-                // Load discovered elements
-                gameState.discoveredElements.forEach(elementName => {
-                    addToElements(elementName);
-                });
-                
-                // Load workspace elements
-                gameState.workspaceElements.forEach(element => {
-                    const newElement = createWorkspaceElement(element.name);
-                    newElement.style.left = element.x;
-                    newElement.style.top = element.y;
-                    workspace.appendChild(newElement);
-                });
-                
-                alert('Progress loaded successfully!');
-            } else {
-                alert('No saved progress found.');
-            }
-        }
+// Add event listeners for save, load, and reset buttons
+document.getElementById('save-button').addEventListener('click', saveProgress);
+document.getElementById('load-button').addEventListener('click', loadProgress);
+document.getElementById('reset-button').addEventListener('click', resetProgress);
 
-        // Add event listeners for save and load buttons
-        document.getElementById('save-button').addEventListener('click', saveProgress);
-        document.getElementById('load-button').addEventListener('click', loadProgress);
-
-        // Load progress when the page loads
-        window.addEventListener('load', loadProgress);
-
-        function resetProgress() {
-            if (confirm('Are you sure you want to reset your progress? This action cannot be undone.')) {
-                // Clear local storage
-                localStorage.removeItem('neilcraftState');
-                
-                // Reset elements to initial state
-                elements.innerHTML = '';
-                elementsOverflow.innerHTML = '';
-                workspace.innerHTML = '';
-                
-                // Add initial elements
-                ['Fire', 'Water', 'Earth', 'Air'].forEach(elementName => {
-                    const newElement = document.createElement('div');
-                    newElement.className = 'element';
-                    newElement.textContent = elementName;
-                    newElement.draggable = true;
-                    addDragListeners(newElement);
-                    elements.appendChild(newElement);
-                });
-                
-                alert('Progress has been reset successfully!');
-            }
-        }
-
-        // Add event listener for reset button
-        document.getElementById('reset-button').addEventListener('click', resetProgress);
+// Load progress when the page loads
+window.addEventListener('load', loadProgress);
     </script>
 </body>
 </html>
